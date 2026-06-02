@@ -80,10 +80,28 @@ Report body (`data`) requires `starts_at`, `ends_at`, and `fields`.
   `COUNTRY`, `REGION`, `COMMUNITY`, `PLACEMENT`, `OS_TYPE`.
 - Optional: `filter`, `custom_column_ids`, `conversion_metrics`, `time_zone_id`.
 
+### Confirmed against a live account (2026-06-02)
+
+Authenticated reads were run against a real account on this date. Confirmed behaviour:
+
+- **Monetary fields are in currency micros.** `SPEND` and `CPC` come back as integers in account-currency
+  micros — divide by 1,000,000 for the display value (e.g. `spend: 297276077` = $297.28; verified
+  `spend / clicks == cpc`). `CTR` is a fraction (0.0057 = 0.57%).
+- **A `COUNTRY` (or other non-ID) breakdown is account-wide** — it aggregates across every campaign in
+  the account. To scope to one campaign, pass `filter="campaign:id==<campaign_id>"`. The `==` operator
+  works; combine with a campaign-ID loop client-side to scope to a set.
+- **Reports paginate.** Even a single `COUNTRY` breakdown returns ~50 rows per page; follow
+  `pagination.next_url`, extract its `page.token` query param, and pass it back as `page_token` until
+  `next_url` is null.
+- Country rows can include `"UNKNOWN"` and an `AQ`/edge ISO with negligible spend; filter as needed.
+
 ## ⚠️ Verification status
 
 This endpoint map was checked against the live v3 OpenAPI document at
-`https://ads-api.reddit.com/api/v3/openapi.json` on 2026-06-02. Live authenticated requests were not
-run from this environment, so request fields can still need adjustment for account-specific products
+`https://ads-api.reddit.com/api/v3/openapi.json` on 2026-06-02, and **read paths were exercised against a
+live authenticated account on 2026-06-02** (`whoami`, `businesses_list`, `accounts_list`,
+`campaigns_list`, `report_run` with `COUNTRY`/`CAMPAIGN_ID` breakdowns and a `campaign:id==` filter — all
+returned as documented; see "Confirmed against a live account" above). Write paths (`*_create`,
+`*_update`) were **not** exercised, so request fields can still need adjustment for account-specific products
 or approval-gated write features. Corrections are localised: paths in `src/tools/*.ts`, common report
 fields/breakdowns in `src/constants.ts`.
